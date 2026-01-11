@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
 
+  // Update favicon if logo changes
   useEffect(() => {
     if (db.home.logo) {
       const favicon = document.getElementById('dynamic-favicon') as HTMLLinkElement;
@@ -37,13 +38,14 @@ const App: React.FC = () => {
     }
   }, [db.home.logo]);
 
+  // FETCH DATA FROM SUPABASE
   useEffect(() => {
     const fetchData = async () => {
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
 
-        // Fetch all data from Supabase
+        // Fetch parallel dari semua tabel
         const [
           { data: settings },
           { data: events },
@@ -53,18 +55,19 @@ const App: React.FC = () => {
           { data: gallery }
         ] = await Promise.all([
           supabase.from('settings').select('*'),
-          supabase.from('events').select('*').order('date', { ascending: false }),
+          supabase.from('events').select('*'),
           supabase.from('merchandise').select('*'),
           supabase.from('organizers').select('*'),
-          supabase.from('articles').select('*').order('date', { ascending: false }),
+          supabase.from('articles').select('*'),
           supabase.from('gallery').select('*')
         ]);
 
+        // Mapping settings (Home & About disimpan di tabel settings dengan key unik)
         const homeData = settings?.find(s => s.key === 'home')?.value || INITIAL_DATA.home;
         const aboutData = settings?.find(s => s.key === 'about')?.value || INITIAL_DATA.about;
 
-        // Penting: Jangan gunakan fallback INITIAL_DATA jika data dari DB ada (walaupun array kosong)
-        // Ini memastikan jika user menghapus semua data, tampilan tetap sinkron (kosong)
+        // Update state dengan data dari database
+        // Jika data null dari database (error fetch), gunakan INITIAL_DATA sebagai aman
         setDb({
           home: homeData,
           about: aboutData,
@@ -75,7 +78,7 @@ const App: React.FC = () => {
           gallery: gallery || []
         });
       } catch (error) {
-        console.error("Gagal mengambil data dari Supabase:", error);
+        console.error("Gagal sinkronisasi data dari Supabase:", error);
       } finally {
         setLoading(false);
       }
@@ -90,20 +93,22 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // UPDATE DATA TO SUPABASE (PERMANENT SAVE)
   const handleUpdateDb = async (newDb: Database) => {
-    setDb(newDb);
+    setDb(newDb); // Update local state dulu agar UI responsif
+    
     try {
       // 1. Simpan Settings (Home & About)
-      await supabase.from('settings').upsert([
+      // Gunakan upsert dengan key agar menimpa data yang lama
+      const { error: settingsError } = await supabase.from('settings').upsert([
         { key: 'home', value: newDb.home },
         { key: 'about', value: newDb.about }
       ], { onConflict: 'key' });
 
-      // 2. Sinkronisasi Koleksi (Events, Merchandise, dll)
-      // Catatan: Karena CMS ini bersifat global update, kita perlu berhati-hati dengan ID.
-      // Untuk memastikan data yang dihapus di UI juga terhapus di DB, 
-      // idealnya kita melakukan perbandingan atau pembersihan.
-      
+      if (settingsError) throw settingsError;
+
+      // 2. Simpan Koleksi (Events, Merchandise, dll)
+      // Kita melakukan sinkronisasi satu per satu
       const collections = [
         { name: 'events', data: newDb.events },
         { name: 'merchandise', data: newDb.merchandise },
@@ -113,24 +118,16 @@ const App: React.FC = () => {
       ];
 
       for (const col of collections) {
-        // Hapus semua data lama dan masukkan yang baru agar sinkron sempurna (termasuk penghapusan)
-        // Jika data sangat besar, pendekatan ini perlu dioptimasi.
-        if (col.data) {
-          // Pertama, kita coba upsert data yang ada
-          if (col.data.length > 0) {
-            const { error } = await supabase.from(col.name).upsert(col.data, { onConflict: 'id' });
-            if (error) throw error;
-          }
-          
-          // Opsional: Untuk menangani data yang dihapus di CMS tapi masih ada di DB,
-          // Anda bisa menambahkan logika delete where id not in (newDb.ids)
+        if (col.data && col.data.length > 0) {
+          const { error } = await supabase.from(col.name).upsert(col.data, { onConflict: 'id' });
+          if (error) throw error;
         }
       }
       
-      alert("Database Berhasil Disinkronkan ke Cloud!");
+      alert("✅ Data Berhasil Disimpan Permanen ke Cloud!");
     } catch (err: any) {
-      console.error("Cloud Sync Error:", err);
-      alert("Gagal Sinkronisasi: " + (err.message || "Pastikan tabel database sudah dikonfigurasi di Supabase."));
+      console.error("Cloud Save Error:", err);
+      alert("❌ Gagal Simpan: " + (err.message || "Pastikan struktur tabel Supabase sesuai."));
     }
   };
 
@@ -142,8 +139,8 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
-          <div className="w-16 h-16 border-4 border-[#0C61BC] border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-[#0C61BC] font-black text-xl italic tracking-widest uppercase">Menghubungkan ke Database...</div>
+          <div className="w-12 h-12 border-4 border-[#0C61BC] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-[#0C61BC] font-black text-xs uppercase tracking-[0.3rem] animate-pulse">Menghubungkan ke Database...</p>
         </div>
       </div>
     );
