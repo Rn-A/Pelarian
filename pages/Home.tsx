@@ -60,16 +60,19 @@ const Home: React.FC<{ db: Database }> = ({ db }) => {
         </div>
       </div>
 
-      {/* About Snippet Section - NEW */}
+      {/* About Snippet Section */}
       <section className="py-32 bg-black border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
+            <div className="animate-in fade-in slide-in-from-left duration-1000">
               <p className="text-[#0C61BC] font-black tracking-[0.3rem] uppercase text-xs mb-3">// WHO WE ARE</p>
               <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-8 leading-none italic">
                 {about.title || 'MENGALIR DALAM SETIAP LANGKAH'}
               </h2>
-              <div className="text-gray-400 text-lg leading-relaxed mb-10 prose prose-invert prose-blue line-clamp-4" dangerouslySetInnerHTML={{ __html: about.description }}></div>
+              <div 
+                className="text-gray-400 text-lg leading-relaxed mb-10 prose prose-invert prose-blue line-clamp-4" 
+                dangerouslySetInnerHTML={{ __html: about.description }}
+              ></div>
               <Link 
                 to="/about" 
                 className="inline-block bg-white text-black px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0C61BC] hover:text-white transition-all transform hover:translate-x-2"
@@ -78,12 +81,12 @@ const Home: React.FC<{ db: Database }> = ({ db }) => {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="bg-[#111] p-10 rounded-[3rem] border border-white/5 group hover:border-[#0C61BC]/50 transition-all">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right duration-1000">
+              <div className="bg-[#111] p-10 rounded-[3rem] border border-white/5 group hover:border-[#0C61BC]/50 transition-all shadow-2xl">
                 <p className="text-4xl md:text-5xl font-black text-[#0C61BC] mb-2 italic tracking-tighter">{about.activeMembers || '200+'}</p>
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2rem]">Anggota Aktif</p>
               </div>
-              <div className="bg-[#111] p-10 rounded-[3rem] border border-white/5 group hover:border-[#0C61BC]/50 transition-all">
+              <div className="bg-[#111] p-10 rounded-[3rem] border border-white/5 group hover:border-[#0C61BC]/50 transition-all shadow-2xl">
                 <p className="text-4xl md:text-5xl font-black text-[#0C61BC] mb-2 italic tracking-tighter">{about.completedEvents || '50+'}</p>
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2rem]">Event Sukses</p>
               </div>
