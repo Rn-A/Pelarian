@@ -1,16 +1,45 @@
+
 <!DOCTYPE html>
 <html lang="id">
   <head>
-    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pelarian RC - Run Connect Inspire</title>
     <link rel="icon" id="dynamic-favicon" type="image/png" href="https://pelarian-rc.vercel.app/logo.png" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" />
     <style>
       :root { --font-mono: 'Roboto Mono', monospace; --primary-blue: #0C61BC; }
-      body { font-family: var(--font-mono) !important; background-color: #000; color: #fff; line-height: 1.6; overflow-x: hidden; }
+      body { 
+        font-family: var(--font-mono) !important; 
+        background-color: #000; 
+        color: #fff; 
+        line-height: 1.6; 
+        overflow-x: hidden; 
+      }
+      
+      @keyframes marquee {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+      }
+      .animate-marquee {
+        display: flex;
+        width: max-content;
+        animation: marquee 25s linear infinite;
+      }
+      
+      .text-reveal {
+        animation: reveal 1.2s cubic-bezier(0.77, 0, 0.175, 1);
+      }
+      @keyframes reveal {
+        0% { transform: translateY(100%); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+      }
+
+      /* Quill Editor Styling */
       .ql-toolbar.ql-snow { background-color: #f3f4f6; border-radius: 12px 12px 0 0; border: 1px solid #333 !important; }
       .ql-container.ql-snow { background-color: #000; color: #fff; border-radius: 0 0 12px 12px; border: 1px solid #333 !important; font-family: var(--font-mono) !important; font-size: 14px; }
     </style>

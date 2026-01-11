@@ -32,14 +32,14 @@ const CMSEvents: React.FC<CMSEventsProps> = ({ db, onUpdate }) => {
         {!editingEvent && <button onClick={() => setEditingEvent({ title: '', category: 'General', images: [], date: '', time: '', location: '', description: '', status: 'ongoing', gformLink: '', slots: '' })} className="bg-[#0C61BC] px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest">+ Tambah Event</button>}
       </div>
       {editingEvent ? (
-        <form onSubmit={handleSave} className="bg-[#1a1a1a] p-8 rounded-3xl border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSave} className="bg-[#1a1a1a] p-8 rounded-3xl border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6 shadow-2xl">
           <div className="col-span-full">
             <label className="block text-[10px] uppercase font-black text-gray-400 mb-2">Judul</label>
-            <input type="text" required className="w-full bg-black border border-white/10 rounded-xl px-4 py-3" value={editingEvent.title || ''} onChange={(e: any) => setEditingEvent({...editingEvent, title: e.target.value})} />
+            <input type="text" required className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white" value={editingEvent.title || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingEvent({...editingEvent, title: e.target.value})} />
           </div>
           <div>
             <label className="block text-[10px] uppercase font-black text-gray-400 mb-2">Tanggal</label>
-            <input type="date" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3" value={editingEvent.date || ''} onChange={(e: any) => setEditingEvent({...editingEvent, date: e.target.value})} />
+            <input type="date" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white" value={editingEvent.date || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingEvent({...editingEvent, date: e.target.value})} />
           </div>
           <div>
             <label className="block text-[10px] uppercase font-black text-gray-400 mb-2">Gambar</label>
@@ -50,15 +50,21 @@ const CMSEvents: React.FC<CMSEventsProps> = ({ db, onUpdate }) => {
             <div className="bg-black rounded-xl overflow-hidden min-h-[250px]"><ReactQuill theme="snow" value={editingEvent.description || ''} onChange={(c: string) => setEditingEvent({...editingEvent, description: c})} /></div>
           </div>
           <div className="col-span-full flex gap-4 pt-4">
-            <button type="submit" className="flex-1 bg-[#0C61BC] py-4 rounded-xl font-black uppercase tracking-widest">SIMPAN</button>
-            <button type="button" onClick={() => setEditingEvent(null)} className="flex-1 bg-gray-800 py-4 rounded-xl font-black uppercase tracking-widest">BATAL</button>
+            <button type="submit" className="flex-1 bg-[#0C61BC] py-4 rounded-xl font-black uppercase text-white shadow-xl shadow-[#0C61BC]/20">SIMPAN</button>
+            <button type="button" onClick={() => setEditingEvent(null)} className="flex-1 bg-gray-800 py-4 rounded-xl font-black uppercase text-white">BATAL</button>
           </div>
         </form>
       ) : (
         <div className="space-y-4">
           {db.events.map(event => (
-            <div key={event.id} className="bg-[#1a1a1a] p-6 rounded-2xl flex items-center justify-between border border-white/5">
-              <div className="flex items-center gap-4"><img src={event.images[0]} className="w-12 h-12 rounded-lg object-cover" /><h4 className="font-bold uppercase tracking-tight">{event.title}</h4></div>
+            <div key={event.id} className="bg-[#1a1a1a] p-6 rounded-2xl flex items-center justify-between border border-white/5 hover:border-[#0C61BC]/30 transition-all">
+              <div className="flex items-center gap-4">
+                <img src={event.images[0]} className="w-12 h-12 rounded-lg object-cover" alt="" />
+                <div>
+                   <h4 className="font-bold uppercase tracking-tight text-white">{event.title}</h4>
+                   <p className="text-[10px] font-black text-gray-500 uppercase">{event.date}</p>
+                </div>
+              </div>
               <button onClick={() => setEditingEvent(event)} className="p-3 bg-[#0C61BC]/10 text-[#0C61BC] rounded-lg text-[10px] font-black uppercase">Edit</button>
             </div>
           ))}
