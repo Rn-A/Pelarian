@@ -1,14 +1,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const getEnv = (key: string): string => {
-  // @ts-ignore
-  const env = import.meta.env;
-  return env?.[key] || '';
-};
+// Utamakan environment variables dari Vite/Vercel
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://gwxprdwhjyvyhnjrqfio.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_DssLhpB9hMyze7ZqCQsflg_CVgawYsy';
 
-// Menggunakan kredensial baru yang diberikan oleh user
-const supabaseUrl = getEnv('VITE_SUPABASE_URL') || 'https://gwxprdwhjyvyhnjrqfio.supabase.co';
-const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'sb_publishable_DssLhpB9hMyze7ZqCQsflg_CVgawYsy';
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase credentials are missing! Check your environment variables.");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
