@@ -1,0 +1,7 @@
+{
+  "name": "Pelarian RC Community Portal",
+  "description": "A feature-rich community portal for Pelarian Running Clan with an integrated CMS for managing events, merchandise, articles, and more.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

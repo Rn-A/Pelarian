@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pelarian RC - Run Connect Inspire</title>
+    <link rel="icon" id="dynamic-favicon" type="image/png" href="https://pelarian-rc.vercel.app/logo.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" />
+    <style>
+      :root { --font-mono: 'Roboto Mono', monospace; --primary-blue: #0C61BC; }
+      body { font-family: var(--font-mono) !important; background-color: #000; color: #fff; line-height: 1.6; overflow-x: hidden; }
+      .ql-toolbar.ql-snow { background-color: #f3f4f6; border-radius: 12px 12px 0 0; border: 1px solid #333 !important; }
+      .ql-container.ql-snow { background-color: #000; color: #fff; border-radius: 0 0 12px 12px; border: 1px solid #333 !important; font-family: var(--font-mono) !important; font-size: 14px; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "react-quill-new": "https://esm.sh/react-quill-new@^3.7.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1",
+    "vite": "https://esm.sh/vite@^7.3.1"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
