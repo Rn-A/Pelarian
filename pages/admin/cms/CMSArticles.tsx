@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Database, Article } from '../../../types';
 import ReactQuill from 'react-quill-new';
+import { supabase } from '../../../supabaseClient';
 
 interface CMSArticlesProps { db: Database; onUpdate: (db: Database) => void; }
 
 const CMSArticles: React.FC<CMSArticlesProps> = ({ db, onUpdate }) => {
   const [editing, setEditing] = useState<Partial<Article> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'author' | 'main') => {
     const files = e.target.files;
@@ -13,13 +15,11 @@ const CMSArticles: React.FC<CMSArticlesProps> = ({ db, onUpdate }) => {
       if (type === 'author') {
         const reader = new FileReader();
         reader.onloadend = () => setEditing(p => ({ ...p, authorPhoto: reader.result as string }));
-        // @google/genai fix: cast potentially unknown file element from FileList to Blob for readAsDataURL
         reader.readAsDataURL(files[0] as Blob);
       } else {
         const readers = Array.from(files).map(f => new Promise<string>((res) => {
           const r = new FileReader(); 
           r.onloadend = () => res(r.result as string); 
-          // @google/genai fix: ensure each file in main images is treated as Blob for readAsDataURL
           r.readAsDataURL(f as Blob);
         }));
         Promise.all(readers).then(imgs => setEditing(p => ({ ...p, images: [...(p?.images || []), ...imgs] })));
@@ -27,22 +27,40 @@ const CMSArticles: React.FC<CMSArticlesProps> = ({ db, onUpdate }) => {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault(); 
     if (!editing) return;
-    let list = [...db.articles];
-    if (editing.id) {
-      list = list.map(a => a.id === editing.id ? (editing as Article) : a);
-    } else {
-      list.push({ ...editing, id: 'a' + Date.now().toString() } as Article);
+    setIsSaving(true);
+
+    try {
+      const newArticle = { 
+        ...editing, 
+        id: editing.id || 'a' + Date.now().toString() 
+      } as Article;
+
+      let list: Article[];
+      if (editing.id) {
+        list = db.articles.map(a => a.id === editing.id ? newArticle : a);
+      } else {
+        list = [...db.articles, newArticle];
+      }
+      onUpdate({ ...db, articles: list }); 
+      setEditing(null);
+    } finally {
+      setIsSaving(false);
     }
-    onUpdate({ ...db, articles: list }); 
-    setEditing(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Hapus artikel ini?')) {
-      onUpdate({ ...db, articles: db.articles.filter(a => a.id !== id) });
+      try {
+        const { error } = await supabase.from('articles').delete().eq('id', id);
+        if (!error) {
+          onUpdate({ ...db, articles: db.articles.filter(a => a.id !== id) });
+        }
+      } catch (err) {
+        console.error("Delete failed:", err);
+      }
     }
   };
 
@@ -78,7 +96,9 @@ const CMSArticles: React.FC<CMSArticlesProps> = ({ db, onUpdate }) => {
             <div className="bg-black rounded-xl overflow-hidden min-h-[300px] shadow-inner"><ReactQuill theme="snow" value={editing.description || ''} onChange={(c: string) => setEditing({...editing, description: c})} /></div>
           </div>
           <div className="col-span-full flex gap-4 pt-6">
-            <button type="submit" className="flex-1 bg-[#0C61BC] py-4 rounded-xl font-black uppercase text-white shadow-xl shadow-[#0C61BC]/20">PUBLISH</button>
+            <button type="submit" disabled={isSaving} className="flex-1 bg-[#0C61BC] py-4 rounded-xl font-black uppercase text-white shadow-xl shadow-[#0C61BC]/20 disabled:opacity-50">
+              {isSaving ? 'PUBLISHING...' : 'PUBLISH'}
+            </button>
             <button type="button" onClick={() => setEditing(null)} className="flex-1 bg-gray-800 py-4 rounded-xl font-black uppercase text-white">BATAL</button>
           </div>
         </form>

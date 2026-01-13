@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Database, Product } from '../../../types';
+import { supabase } from '../../../supabaseClient';
 
 interface CMSMerchandiseProps {
   db: Database;
@@ -8,6 +9,7 @@ interface CMSMerchandiseProps {
 
 const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -16,7 +18,6 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
         return new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
-          // @google/genai fix: ensure file argument is treated as Blob for readAsDataURL
           reader.readAsDataURL(file as Blob);
         });
       });
@@ -26,17 +27,42 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
-    let newList = [...db.merchandise];
-    if (editing.id) {
-      newList = newList.map(p => p.id === editing.id ? (editing as Product) : p);
-    } else {
-      newList.push({ ...editing, id: 'm' + Date.now().toString() } as Product);
+    setIsSaving(true);
+
+    try {
+      const newProduct = { 
+        ...editing, 
+        id: editing.id || 'm' + Date.now().toString() 
+      } as Product;
+
+      let newList: Product[];
+      if (editing.id) {
+        newList = db.merchandise.map(p => p.id === editing.id ? newProduct : p);
+      } else {
+        newList = [...db.merchandise, newProduct];
+      }
+
+      onUpdate({ ...db, merchandise: newList });
+      setEditing(null);
+    } finally {
+      setIsSaving(false);
     }
-    onUpdate({ ...db, merchandise: newList });
-    setEditing(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Hapus produk ini?')) {
+      try {
+        const { error } = await supabase.from('merchandise').delete().eq('id', id);
+        if (!error) {
+          onUpdate({ ...db, merchandise: db.merchandise.filter(m => m.id !== id) });
+        }
+      } catch (err) {
+        console.error("Delete failed:", err);
+      }
+    }
   };
 
   return (
@@ -91,12 +117,12 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
                 value={editing.productionEstimation} onChange={e => setEditing({...editing, productionEstimation: e.target.value})} />
             </div>
             <div>
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Link GForm (Pesan Sekarang)</label>
+              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Link GForm</label>
               <input type="url" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" 
                 value={editing.gformLink} onChange={e => setEditing({...editing, gformLink: e.target.value})} />
             </div>
             <div>
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Link WhatsApp (Chat Admin)</label>
+              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Link WhatsApp</label>
               <input type="url" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" 
                 value={editing.whatsappLink} onChange={e => setEditing({...editing, whatsappLink: e.target.value})} />
             </div>
@@ -118,17 +144,14 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
               </div>
             </div>
             <div className="col-span-full">
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Catatan Pre-Order</label>
-              <textarea className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" rows={2} 
-                value={editing.poNotes} onChange={e => setEditing({...editing, poNotes: e.target.value})} />
-            </div>
-            <div className="col-span-full">
               <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Deskripsi Produk</label>
               <textarea className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" rows={3} 
                 value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})} />
             </div>
             <div className="col-span-full flex gap-4 pt-6">
-              <button type="submit" className="flex-1 bg-[#0C61BC] px-10 py-4 rounded-xl font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest">SIMPAN PRODUK</button>
+              <button type="submit" disabled={isSaving} className="flex-1 bg-[#0C61BC] px-10 py-4 rounded-xl font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest disabled:opacity-50">
+                {isSaving ? 'MEMPROSES...' : 'SIMPAN PRODUK'}
+              </button>
               <button type="button" onClick={() => setEditing(null)} className="flex-1 bg-gray-800 px-10 py-4 rounded-xl font-black uppercase tracking-widest">BATAL</button>
             </div>
           </form>
@@ -142,7 +165,7 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
               <p className="text-[#0C61BC] font-black mb-4">Rp {item.price.toLocaleString('id-ID')}</p>
               <div className="flex gap-2 mt-auto">
                 <button onClick={() => setEditing(item)} className="flex-1 py-3 bg-[#0C61BC]/10 text-[#0C61BC] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#0C61BC] hover:text-white transition-all">Edit</button>
-                <button onClick={() => {if(confirm('Hapus?')) onUpdate({...db, merchandise: db.merchandise.filter(m => m.id !== item.id)})}} className="flex-1 py-3 bg-red-600/10 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Hapus</button>
+                <button onClick={() => handleDelete(item.id)} className="flex-1 py-3 bg-red-600/10 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Hapus</button>
               </div>
             </div>
           ))}

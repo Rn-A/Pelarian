@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { INITIAL_DATA } from './constants';
-import { Database } from './types';
+import { Database, Event, Product, Organizer, Article, GalleryAlbum } from './types';
+import { supabase } from './supabaseClient';
 
 // Public Pages
 import Home from './pages/Home';
@@ -10,7 +11,7 @@ import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
 import Merchandise from './pages/Merchandise';
 import MerchandiseDetail from './pages/MerchandiseDetail';
-import Organizer from './pages/Organizer';
+import OrganizerPage from './pages/Organizer';
 import Articles from './pages/Articles';
 import ArticleDetail from './pages/ArticleDetail';
 import Gallery from './pages/Gallery';
@@ -25,23 +26,56 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
 const App: React.FC = () => {
-  // Local state persistence logic
-  const [db, setDb] = useState<Database>(() => {
-    const saved = localStorage.getItem('pelarian_db');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return INITIAL_DATA;
-      }
-    }
-    return INITIAL_DATA;
-  });
+  const [db, setDb] = useState<Database>(INITIAL_DATA);
+  const [loading, setLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const [loading, setLoading] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('pelarian_admin_auth') === 'true';
-  });
+  // Fetch data from Supabase on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch Settings (Home & About)
+        const { data: settings } = await supabase.from('settings').select('*');
+        const homeData = settings?.find(s => s.key === 'home')?.value || INITIAL_DATA.home;
+        const aboutData = settings?.find(s => s.key === 'about')?.value || INITIAL_DATA.about;
+
+        // Fetch other tables
+        const { data: events } = await supabase.from('events').select('*');
+        const { data: merchandise } = await supabase.from('merchandise').select('*');
+        const { data: organizers } = await supabase.from('organizers').select('*');
+        const { data: articles } = await supabase.from('articles').select('*');
+        const { data: gallery } = await supabase.from('gallery').select('*');
+
+        setDb({
+          home: homeData,
+          about: aboutData,
+          events: events || [],
+          merchandise: merchandise || [],
+          organizers: organizers || [],
+          articles: articles || [],
+          gallery: gallery || []
+        });
+
+        // Check Auth session
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsLoggedIn(!!session);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Update favicon if logo changes
   useEffect(() => {
@@ -51,21 +85,43 @@ const App: React.FC = () => {
     }
   }, [db.home.logo]);
 
-  const handleUpdateDb = (newDb: Database) => {
+  const handleUpdateDb = async (newDb: Database) => {
+    const oldDb = db;
     setDb(newDb);
-    localStorage.setItem('pelarian_db', JSON.stringify(newDb));
-  };
 
-  const handleLogin = (success: boolean) => {
-    if (success) {
-      setIsLoggedIn(true);
-      localStorage.setItem('pelarian_admin_auth', 'true');
+    try {
+      // Sinkronisasi Settings
+      if (JSON.stringify(oldDb.home) !== JSON.stringify(newDb.home)) {
+        await supabase.from('settings').upsert({ key: 'home', value: newDb.home });
+      }
+      if (JSON.stringify(oldDb.about) !== JSON.stringify(newDb.about)) {
+        await supabase.from('settings').upsert({ key: 'about', value: newDb.about });
+      }
+      
+      // Sinkronisasi Tabel (Upsert koleksi terbaru)
+      if (oldDb.events !== newDb.events && newDb.events.length > 0) {
+        await supabase.from('events').upsert(newDb.events);
+      }
+      if (oldDb.merchandise !== newDb.merchandise && newDb.merchandise.length > 0) {
+        await supabase.from('merchandise').upsert(newDb.merchandise);
+      }
+      if (oldDb.organizers !== newDb.organizers && newDb.organizers.length > 0) {
+        await supabase.from('organizers').upsert(newDb.organizers);
+      }
+      if (oldDb.articles !== newDb.articles && newDb.articles.length > 0) {
+        await supabase.from('articles').upsert(newDb.articles);
+      }
+      if (oldDb.gallery !== newDb.gallery && newDb.gallery.length > 0) {
+        await supabase.from('gallery').upsert(newDb.gallery);
+      }
+    } catch (err) {
+      console.error("Failed to sync with Supabase:", err);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
-    localStorage.removeItem('pelarian_admin_auth');
   };
 
   if (loading) {
@@ -73,7 +129,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
           <div className="w-16 h-16 border-4 border-[#0C61BC] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-[#0C61BC] font-black text-xs uppercase tracking-[0.3rem]">LOADING PELARIAN RC...</p>
+          <p className="text-[#0C61BC] font-black text-xs uppercase tracking-[0.3rem]">SYNCING PELARIAN DATA...</p>
         </div>
       </div>
     );
@@ -91,11 +147,11 @@ const App: React.FC = () => {
             <Route path="/event/:id" element={<EventDetail db={db} />} />
             <Route path="/merchandise" element={<Merchandise db={db} />} />
             <Route path="/merchandise/:id" element={<MerchandiseDetail db={db} />} />
-            <Route path="/organizer" element={<Organizer db={db} />} />
+            <Route path="/organizer" element={<OrganizerPage db={db} />} />
             <Route path="/articles" element={<Articles db={db} />} />
             <Route path="/article/:id" element={<ArticleDetail db={db} />} />
             <Route path="/gallery" element={<Gallery db={db} />} />
-            <Route path="/admin/login" element={isLoggedIn ? <Navigate to="/admin/dashboard" /> : <AdminLogin onLogin={() => handleLogin(true)} />} />
+            <Route path="/admin/login" element={isLoggedIn ? <Navigate to="/admin/dashboard" /> : <AdminLogin onLogin={() => setIsLoggedIn(true)} />} />
             <Route path="/admin/dashboard" element={isLoggedIn ? <AdminDashboard db={db} /> : <Navigate to="/admin/login" />} />
             <Route path="/admin/cms/*" element={isLoggedIn ? <AdminCMS db={db} onUpdate={handleUpdateDb} /> : <Navigate to="/admin/login" />} />
             <Route path="*" element={<Navigate to="/" />} />

@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { Database, GalleryAlbum } from '../../../types';
+import { supabase } from '../../../supabaseClient';
 
 interface CMSGalleryProps {
   db: Database;
@@ -9,6 +9,7 @@ interface CMSGalleryProps {
 
 const CMSGallery: React.FC<CMSGalleryProps> = ({ db, onUpdate }) => {
   const [editing, setEditing] = useState<Partial<GalleryAlbum> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -21,25 +22,42 @@ const CMSGallery: React.FC<CMSGalleryProps> = ({ db, onUpdate }) => {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Hapus album galeri ini?')) {
-      onUpdate({ ...db, gallery: db.gallery.filter(g => g.id !== id) });
+      try {
+        const { error } = await supabase.from('gallery').delete().eq('id', id);
+        if (!error) {
+          onUpdate({ ...db, gallery: db.gallery.filter(g => g.id !== id) });
+        }
+      } catch (err) {
+        console.error("Delete failed:", err);
+      }
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+    setIsSaving(true);
 
-    let newList = [...db.gallery];
-    if (editing.id) {
-      newList = newList.map(g => g.id === editing.id ? (editing as GalleryAlbum) : g);
-    } else {
-      newList.push({ ...editing, id: 'g' + Date.now().toString() } as GalleryAlbum);
+    try {
+      const newAlbum = { 
+        ...editing, 
+        id: editing.id || 'g' + Date.now().toString() 
+      } as GalleryAlbum;
+
+      let newList: GalleryAlbum[];
+      if (editing.id) {
+        newList = db.gallery.map(g => g.id === editing.id ? newAlbum : g);
+      } else {
+        newList = [...db.gallery, newAlbum];
+      }
+
+      onUpdate({ ...db, gallery: newList });
+      setEditing(null);
+    } finally {
+      setIsSaving(false);
     }
-
-    onUpdate({ ...db, gallery: newList });
-    setEditing(null);
   };
 
   return (
@@ -87,7 +105,9 @@ const CMSGallery: React.FC<CMSGalleryProps> = ({ db, onUpdate }) => {
                 value={editing.gdriveLink} onChange={e => setEditing({...editing, gdriveLink: e.target.value})} />
             </div>
             <div className="flex gap-4 pt-6 border-t border-white/5">
-              <button type="submit" className="flex-1 bg-[#0C61BC] px-8 py-4 rounded-xl font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest shadow-lg shadow-[#0C61BC]/20">SIMPAN ALBUM</button>
+              <button type="submit" disabled={isSaving} className="flex-1 bg-[#0C61BC] px-8 py-4 rounded-xl font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest shadow-lg shadow-[#0C61BC]/20 disabled:opacity-50">
+                {isSaving ? 'MEMPROSES...' : 'SIMPAN ALBUM'}
+              </button>
               <button type="button" onClick={() => setEditing(null)} className="flex-1 bg-gray-800 px-8 py-4 rounded-xl font-black text-white hover:bg-gray-700 transition-all uppercase tracking-widest">BATAL</button>
             </div>
           </form>

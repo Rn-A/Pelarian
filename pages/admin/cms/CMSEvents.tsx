@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Database, Event } from '../../../types';
 import ReactQuill from 'react-quill-new';
+import { supabase } from '../../../supabaseClient';
 
 interface CMSEventsProps { db: Database; onUpdate: (db: Database) => void; }
 
 const CMSEvents: React.FC<CMSEventsProps> = ({ db, onUpdate }) => {
   const [editingEvent, setEditingEvent] = useState<Partial<Event> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -13,29 +15,51 @@ const CMSEvents: React.FC<CMSEventsProps> = ({ db, onUpdate }) => {
       const readers = Array.from(files).map(f => new Promise<string>((res) => {
         const r = new FileReader(); 
         r.onloadend = () => res(r.result as string); 
-        // @google/genai fix: cast potential unknown file object to Blob for compatibility with readAsDataURL
         r.readAsDataURL(f as Blob);
       }));
       Promise.all(readers).then(imgs => setEditingEvent(p => ({ ...p, images: [...(p?.images || []), ...imgs] })));
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault(); 
     if (!editingEvent) return;
-    let evs = [...db.events];
-    if (editingEvent.id) {
-      evs = evs.map(ev => ev.id === editingEvent.id ? (editingEvent as Event) : ev);
-    } else {
-      evs.push({ ...editingEvent, id: Date.now().toString() } as Event);
+    setIsSaving(true);
+    
+    try {
+      const newEvent = { 
+        ...editingEvent, 
+        id: editingEvent.id || Date.now().toString() 
+      } as Event;
+
+      let updatedEvents: Event[];
+      if (editingEvent.id) {
+        updatedEvents = db.events.map(ev => ev.id === editingEvent.id ? newEvent : ev);
+      } else {
+        updatedEvents = [...db.events, newEvent];
+      }
+
+      // Supabase central sync through handleUpdateDb in App.tsx
+      // handleUpdateDb is called by onUpdate
+      onUpdate({ ...db, events: updatedEvents }); 
+      setEditingEvent(null);
+    } catch (err) {
+      console.error("Save failed:", err);
+    } finally {
+      setIsSaving(false);
     }
-    onUpdate({ ...db, events: evs }); 
-    setEditingEvent(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Hapus event ini?')) {
-      onUpdate({ ...db, events: db.events.filter(e => e.id !== id) });
+      try {
+        const { error } = await supabase.from('events').delete().eq('id', id);
+        if (!error) {
+          onUpdate({ ...db, events: db.events.filter(e => e.id !== id) });
+        }
+      } catch (err) {
+        console.error("Delete failed:", err);
+      }
     }
   };
 
@@ -71,7 +95,9 @@ const CMSEvents: React.FC<CMSEventsProps> = ({ db, onUpdate }) => {
             <div className="bg-black rounded-xl overflow-hidden min-h-[250px]"><ReactQuill theme="snow" value={editingEvent.description || ''} onChange={(c: string) => setEditingEvent({...editingEvent, description: c})} /></div>
           </div>
           <div className="col-span-full flex gap-4 pt-4">
-            <button type="submit" className="flex-1 bg-[#0C61BC] py-4 rounded-xl font-black uppercase text-white shadow-xl shadow-[#0C61BC]/20">SIMPAN</button>
+            <button type="submit" disabled={isSaving} className="flex-1 bg-[#0C61BC] py-4 rounded-xl font-black uppercase text-white shadow-xl shadow-[#0C61BC]/20 disabled:opacity-50">
+              {isSaving ? 'MEMPROSES...' : 'SIMPAN'}
+            </button>
             <button type="button" onClick={() => setEditingEvent(null)} className="flex-1 bg-gray-800 py-4 rounded-xl font-black uppercase text-white">BATAL</button>
           </div>
         </form>

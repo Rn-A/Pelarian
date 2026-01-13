@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { Database, Organizer } from '../../../types';
+import { supabase } from '../../../supabaseClient';
 
 interface CMSOrganizersProps {
   db: Database;
@@ -9,6 +9,7 @@ interface CMSOrganizersProps {
 
 const CMSOrganizers: React.FC<CMSOrganizersProps> = ({ db, onUpdate }) => {
   const [editing, setEditing] = useState<Partial<Organizer> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -21,25 +22,42 @@ const CMSOrganizers: React.FC<CMSOrganizersProps> = ({ db, onUpdate }) => {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Hapus anggota organizer ini?')) {
-      onUpdate({ ...db, organizers: db.organizers.filter(o => o.id !== id) });
+      try {
+        const { error } = await supabase.from('organizers').delete().eq('id', id);
+        if (!error) {
+          onUpdate({ ...db, organizers: db.organizers.filter(o => o.id !== id) });
+        }
+      } catch (err) {
+        console.error("Delete failed:", err);
+      }
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+    setIsSaving(true);
 
-    let newList = [...db.organizers];
-    if (editing.id) {
-      newList = newList.map(o => o.id === editing.id ? (editing as Organizer) : o);
-    } else {
-      newList.push({ ...editing, id: 'o' + Date.now().toString() } as Organizer);
+    try {
+      const newMember = { 
+        ...editing, 
+        id: editing.id || 'o' + Date.now().toString() 
+      } as Organizer;
+
+      let newList: Organizer[];
+      if (editing.id) {
+        newList = db.organizers.map(o => o.id === editing.id ? newMember : o);
+      } else {
+        newList = [...db.organizers, newMember];
+      }
+
+      onUpdate({ ...db, organizers: newList });
+      setEditing(null);
+    } finally {
+      setIsSaving(false);
     }
-
-    onUpdate({ ...db, organizers: newList });
-    setEditing(null);
   };
 
   return (
@@ -92,7 +110,9 @@ const CMSOrganizers: React.FC<CMSOrganizersProps> = ({ db, onUpdate }) => {
                 value={editing.instagramLink} onChange={e => setEditing({...editing, instagramLink: e.target.value})} />
             </div>
             <div className="col-span-full flex gap-4 pt-6 border-t border-white/5">
-              <button type="submit" className="flex-1 bg-[#0C61BC] px-8 py-4 rounded-xl font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest shadow-lg shadow-[#0C61BC]/20">SIMPAN ANGGOTA</button>
+              <button type="submit" disabled={isSaving} className="flex-1 bg-[#0C61BC] px-8 py-4 rounded-xl font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest shadow-lg shadow-[#0C61BC]/20 disabled:opacity-50">
+                {isSaving ? 'MEMPROSES...' : 'SIMPAN ANGGOTA'}
+              </button>
               <button type="button" onClick={() => setEditing(null)} className="flex-1 bg-gray-800 px-8 py-4 rounded-xl font-black text-white hover:bg-gray-700 transition-all uppercase tracking-widest">BATAL</button>
             </div>
           </form>

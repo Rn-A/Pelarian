@@ -1,16 +1,17 @@
-
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminLoginProps {
   onLogin: () => void;
 }
 
-const AdminLogin: React.FC<AdminLoginProps> = () => {
+const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,8 +19,13 @@ const AdminLogin: React.FC<AdminLoginProps> = () => {
     setError('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError('Login gagal: ' + error.message);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError('Login gagal: ' + error.message);
+      } else if (data.session) {
+        onLogin();
+        navigate('/admin/dashboard');
+      }
     } catch (err) {
       setError('Terjadi kesalahan koneksi.');
     } finally {
@@ -73,6 +79,10 @@ const AdminLogin: React.FC<AdminLoginProps> = () => {
               {loading ? 'MEMVERIFIKASI...' : 'MASUK DASHBOARD'}
             </button>
           </form>
+          
+          <div className="mt-8 pt-8 border-t border-white/5 text-center">
+            <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">Gunakan kredensial yang terdaftar di Supabase Auth</p>
+          </div>
         </div>
       </div>
     </div>
