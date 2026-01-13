@@ -45,22 +45,23 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
         newList = [...db.merchandise, newProduct];
       }
 
-      onUpdate({ ...db, merchandise: newList });
+      await onUpdate({ ...db, merchandise: newList });
       setEditing(null);
+    } catch (err) {
+      alert("Gagal menyimpan produk.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Hapus produk ini?')) {
+    if (confirm('Hapus produk ini secara permanen?')) {
       try {
         const { error } = await supabase.from('merchandise').delete().eq('id', id);
-        if (!error) {
-          onUpdate({ ...db, merchandise: db.merchandise.filter(m => m.id !== id) });
-        }
+        if (error) throw error;
+        onUpdate({ ...db, merchandise: db.merchandise.filter(m => m.id !== id) });
       } catch (err) {
-        console.error("Delete failed:", err);
+        alert("Gagal menghapus data.");
       }
     }
   };
@@ -72,7 +73,7 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
         {!editing && (
           <button 
             onClick={() => setEditing({ name: '', images: [], price: 0, status: 'open', description: '', specifications: '', sizes: '', poPeriod: '', productionEstimation: '', gformLink: '', whatsappLink: '', poNotes: '' })}
-            className="bg-[#0C61BC] hover:bg-white hover:text-black px-6 py-3 rounded-xl font-bold transition-all shadow-lg"
+            className="bg-[#0C61BC] hover:bg-white hover:text-black px-6 py-3 rounded-xl font-bold transition-all shadow-lg uppercase text-xs tracking-widest"
           >
             + Tambah Produk
           </button>
@@ -101,31 +102,6 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
                 <option value="close">Closed</option>
               </select>
             </div>
-            <div>
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Ukuran (misal: S, M, L, XL)</label>
-              <input type="text" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" 
-                value={editing.sizes} onChange={e => setEditing({...editing, sizes: e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Periode Pre-Order</label>
-              <input type="text" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" 
-                value={editing.poPeriod} onChange={e => setEditing({...editing, poPeriod: e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Estimasi Produksi</label>
-              <input type="text" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" 
-                value={editing.productionEstimation} onChange={e => setEditing({...editing, productionEstimation: e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Link GForm</label>
-              <input type="url" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" 
-                value={editing.gformLink} onChange={e => setEditing({...editing, gformLink: e.target.value})} />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Link WhatsApp</label>
-              <input type="url" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#0C61BC] outline-none" 
-                value={editing.whatsappLink} onChange={e => setEditing({...editing, whatsappLink: e.target.value})} />
-            </div>
             <div className="col-span-full">
               <label className="block text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Upload Gambar Produk</label>
               <input type="file" multiple accept="image/*" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-white file:bg-[#0C61BC] file:border-0 file:rounded-full file:text-white file:px-4 file:py-1 file:mr-4 file:text-[10px] file:font-black" 
@@ -150,7 +126,7 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
             </div>
             <div className="col-span-full flex gap-4 pt-6">
               <button type="submit" disabled={isSaving} className="flex-1 bg-[#0C61BC] px-10 py-4 rounded-xl font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest disabled:opacity-50">
-                {isSaving ? 'MEMPROSES...' : 'SIMPAN PRODUK'}
+                {isSaving ? 'MENGUPLOAD...' : 'SIMPAN PRODUK'}
               </button>
               <button type="button" onClick={() => setEditing(null)} className="flex-1 bg-gray-800 px-10 py-4 rounded-xl font-black uppercase tracking-widest">BATAL</button>
             </div>
@@ -160,7 +136,7 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {db.merchandise.map(item => (
             <div key={item.id} className="bg-[#1a1a1a] p-6 rounded-[2rem] flex flex-col border border-white/5 hover:border-[#0C61BC]/30 transition-all shadow-xl">
-              <img src={item.images[0]} className="w-full h-48 object-cover rounded-2xl mb-4" alt="" />
+              <img src={item.images[0] || 'https://via.placeholder.com/300'} className="w-full h-48 object-cover rounded-2xl mb-4" alt="" />
               <h4 className="font-black text-lg uppercase tracking-tight">{item.name}</h4>
               <p className="text-[#0C61BC] font-black mb-4">Rp {item.price.toLocaleString('id-ID')}</p>
               <div className="flex gap-2 mt-auto">
@@ -169,6 +145,7 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
               </div>
             </div>
           ))}
+          {db.merchandise.length === 0 && <p className="col-span-full text-center text-gray-600 py-10 uppercase font-bold text-xs">Belum ada produk di database.</p>}
         </div>
       )}
     </div>

@@ -86,36 +86,40 @@ const App: React.FC = () => {
   }, [db.home.logo]);
 
   const handleUpdateDb = async (newDb: Database) => {
-    const oldDb = db;
+    const prevDb = db;
+    // Update local state first for immediate UI response
     setDb(newDb);
 
     try {
-      // Sinkronisasi Settings
-      if (JSON.stringify(oldDb.home) !== JSON.stringify(newDb.home)) {
+      // 1. Sync Home Settings
+      if (JSON.stringify(newDb.home) !== JSON.stringify(prevDb.home)) {
         await supabase.from('settings').upsert({ key: 'home', value: newDb.home });
       }
-      if (JSON.stringify(oldDb.about) !== JSON.stringify(newDb.about)) {
+
+      // 2. Sync About Settings
+      if (JSON.stringify(newDb.about) !== JSON.stringify(prevDb.about)) {
         await supabase.from('settings').upsert({ key: 'about', value: newDb.about });
       }
-      
-      // Sinkronisasi Tabel (Upsert koleksi terbaru)
-      if (oldDb.events !== newDb.events && newDb.events.length > 0) {
-        await supabase.from('events').upsert(newDb.events);
+
+      // 3. Sync Arrays (Upsert handles updates and additions)
+      // Note: Deletions are handled directly in CMS components before onUpdate is called
+      if (newDb.events !== prevDb.events) {
+        if (newDb.events.length > 0) await supabase.from('events').upsert(newDb.events);
       }
-      if (oldDb.merchandise !== newDb.merchandise && newDb.merchandise.length > 0) {
-        await supabase.from('merchandise').upsert(newDb.merchandise);
+      if (newDb.merchandise !== prevDb.merchandise) {
+        if (newDb.merchandise.length > 0) await supabase.from('merchandise').upsert(newDb.merchandise);
       }
-      if (oldDb.organizers !== newDb.organizers && newDb.organizers.length > 0) {
-        await supabase.from('organizers').upsert(newDb.organizers);
+      if (newDb.organizers !== prevDb.organizers) {
+        if (newDb.organizers.length > 0) await supabase.from('organizers').upsert(newDb.organizers);
       }
-      if (oldDb.articles !== newDb.articles && newDb.articles.length > 0) {
-        await supabase.from('articles').upsert(newDb.articles);
+      if (newDb.articles !== prevDb.articles) {
+        if (newDb.articles.length > 0) await supabase.from('articles').upsert(newDb.articles);
       }
-      if (oldDb.gallery !== newDb.gallery && newDb.gallery.length > 0) {
-        await supabase.from('gallery').upsert(newDb.gallery);
+      if (newDb.gallery !== prevDb.gallery) {
+        if (newDb.gallery.length > 0) await supabase.from('gallery').upsert(newDb.gallery);
       }
     } catch (err) {
-      console.error("Failed to sync with Supabase:", err);
+      console.error("Sync Error:", err);
     }
   };
 
@@ -129,7 +133,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
           <div className="w-16 h-16 border-4 border-[#0C61BC] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-[#0C61BC] font-black text-xs uppercase tracking-[0.3rem]">SYNCING PELARIAN DATA...</p>
+          <p className="text-[#0C61BC] font-black text-xs uppercase tracking-[0.3rem] animate-pulse">MEMUAT DATA PELARIAN...</p>
         </div>
       </div>
     );
