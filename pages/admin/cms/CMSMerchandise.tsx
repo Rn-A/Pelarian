@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Database, Product } from '../../../types';
 
@@ -17,7 +16,8 @@ const CMSMerchandise: React.FC<CMSMerchandiseProps> = ({ db, onUpdate }) => {
         return new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
+          // @google/genai fix: ensure file argument is treated as Blob for readAsDataURL
+          reader.readAsDataURL(file as Blob);
         });
       });
       Promise.all(readers).then(images => {

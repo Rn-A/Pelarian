@@ -11,25 +11,46 @@ const CMSEvents: React.FC<CMSEventsProps> = ({ db, onUpdate }) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       const readers = Array.from(files).map(f => new Promise<string>((res) => {
-        const r = new FileReader(); r.onloadend = () => res(r.result as string); r.readAsDataURL(f);
+        const r = new FileReader(); 
+        r.onloadend = () => res(r.result as string); 
+        // @google/genai fix: cast potential unknown file object to Blob for compatibility with readAsDataURL
+        r.readAsDataURL(f as Blob);
       }));
       Promise.all(readers).then(imgs => setEditingEvent(p => ({ ...p, images: [...(p?.images || []), ...imgs] })));
     }
   };
 
   const handleSave = (e: React.FormEvent) => {
-    e.preventDefault(); if (!editingEvent) return;
+    e.preventDefault(); 
+    if (!editingEvent) return;
     let evs = [...db.events];
-    if (editingEvent.id) evs = evs.map(ev => ev.id === editingEvent.id ? (editingEvent as Event) : ev);
-    else evs.push({ ...editingEvent, id: Date.now().toString() } as Event);
-    onUpdate({ ...db, events: evs }); setEditingEvent(null);
+    if (editingEvent.id) {
+      evs = evs.map(ev => ev.id === editingEvent.id ? (editingEvent as Event) : ev);
+    } else {
+      evs.push({ ...editingEvent, id: Date.now().toString() } as Event);
+    }
+    onUpdate({ ...db, events: evs }); 
+    setEditingEvent(null);
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Hapus event ini?')) {
+      onUpdate({ ...db, events: db.events.filter(e => e.id !== id) });
+    }
   };
 
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-black uppercase tracking-tighter">Manage <span className="text-[#0C61BC]">Events</span></h2>
-        {!editingEvent && <button onClick={() => setEditingEvent({ title: '', category: 'General', images: [], date: '', time: '', location: '', description: '', status: 'ongoing', gformLink: '', slots: '' })} className="bg-[#0C61BC] px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest">+ Tambah Event</button>}
+        {!editingEvent && (
+          <button 
+            onClick={() => setEditingEvent({ title: '', category: 'General', images: [], date: '', time: '', location: '', description: '', status: 'ongoing', gformLink: '', slots: '' })} 
+            className="bg-[#0C61BC] px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest"
+          >
+            + Tambah Event
+          </button>
+        )}
       </div>
       {editingEvent ? (
         <form onSubmit={handleSave} className="bg-[#1a1a1a] p-8 rounded-3xl border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6 shadow-2xl">
@@ -65,7 +86,10 @@ const CMSEvents: React.FC<CMSEventsProps> = ({ db, onUpdate }) => {
                    <p className="text-[10px] font-black text-gray-500 uppercase">{event.date}</p>
                 </div>
               </div>
-              <button onClick={() => setEditingEvent(event)} className="p-3 bg-[#0C61BC]/10 text-[#0C61BC] rounded-lg text-[10px] font-black uppercase">Edit</button>
+              <div className="flex gap-2">
+                <button onClick={() => setEditingEvent(event)} className="p-3 bg-[#0C61BC]/10 text-[#0C61BC] rounded-lg text-[10px] font-black uppercase">Edit</button>
+                <button onClick={() => handleDelete(event.id)} className="p-3 bg-red-600/10 text-red-500 rounded-lg text-[10px] font-black uppercase">Hapus</button>
+              </div>
             </div>
           ))}
         </div>

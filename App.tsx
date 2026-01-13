@@ -1,9 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { INITIAL_DATA } from './constants';
 import { Database } from './types';
-import { supabase } from './supabaseClient';
 
 // Public Pages
 import Home from './pages/Home';
@@ -27,11 +25,25 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
 const App: React.FC = () => {
-  const [db, setDb] = useState<Database>(INITIAL_DATA);
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [session, setSession] = useState<any>(null);
+  // Local state persistence logic
+  const [db, setDb] = useState<Database>(() => {
+    const saved = localStorage.getItem('pelarian_db');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return INITIAL_DATA;
+      }
+    }
+    return INITIAL_DATA;
+  });
 
+  const [loading, setLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('pelarian_admin_auth') === 'true';
+  });
+
+  // Update favicon if logo changes
   useEffect(() => {
     if (db.home.logo) {
       const favicon = document.getElementById('dynamic-favicon') as HTMLLinkElement;
@@ -39,112 +51,21 @@ const App: React.FC = () => {
     }
   }, [db.home.logo]);
 
-  // FETCH DATA
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        setSession(currentSession);
-
-        console.log("Memulai sinkronisasi cloud...");
-
-        const [
-          { data: settings, error: e1 },
-          { data: events, error: e2 },
-          { data: merch, error: e3 },
-          { data: organizers, error: e4 },
-          { data: articles, error: e5 },
-          { data: gallery, error: e6 }
-        ] = await Promise.all([
-          supabase.from('settings').select('*'),
-          supabase.from('events').select('*'),
-          supabase.from('merchandise').select('*'),
-          supabase.from('organizers').select('*'),
-          supabase.from('articles').select('*'),
-          supabase.from('gallery').select('*')
-        ]);
-
-        if (e1 || e2 || e3 || e4 || e5 || e6) {
-          console.error("Beberapa tabel gagal dimuat:", { e1, e2, e3, e4, e5, e6 });
-        }
-
-        const homeData = settings?.find(s => s.key === 'home')?.value;
-        const aboutData = settings?.find(s => s.key === 'about')?.value;
-
-        // Jika data ada di database, gunakan itu. Jika tidak ada sama sekali (fresh db), tetap gunakan INITIAL_DATA dari state awal.
-        setDb(prev => ({
-          home: homeData || prev.home,
-          about: aboutData || prev.about,
-          events: events && events.length > 0 ? events : prev.events,
-          merchandise: merch && merch.length > 0 ? merch : prev.merchandise,
-          organizers: organizers && organizers.length > 0 ? organizers : prev.organizers,
-          articles: articles && articles.length > 0 ? articles : prev.articles,
-          gallery: gallery && gallery.length > 0 ? gallery : prev.gallery
-        }));
-
-        console.log("Sinkronisasi cloud berhasil!");
-      } catch (error) {
-        console.error("Fatal Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // PERMANENT SAVE
-  const handleUpdateDb = async (newDb: Database) => {
+  const handleUpdateDb = (newDb: Database) => {
     setDb(newDb);
-    setIsSaving(true);
-    
-    try {
-      console.log("Sedang menyimpan ke cloud...");
+    localStorage.setItem('pelarian_db', JSON.stringify(newDb));
+  };
 
-      // 1. Settings
-      const { error: err1 } = await supabase.from('settings').upsert([
-        { key: 'home', value: newDb.home },
-        { key: 'about', value: newDb.about }
-      ], { onConflict: 'key' });
-      if (err1) throw new Error(`Settings Error: ${err1.message}`);
-
-      // 2. Collections (Events, Merch, etc)
-      // Kita harus menghapus data lama atau memastikan upsert menimpa semuanya.
-      // Untuk kesederhanaan dan keandalan, kita lakukan upsert individual.
-      const sync = async (table: string, data: any[]) => {
-        if (!data) return;
-        // Jika data kosong, kita tidak bisa upsert. Namun kita ingin cloud mencerminkan kekosongan.
-        // Dalam skala kecil, kita bisa asumsikan data yang ada di state adalah yang benar.
-        const { error } = await supabase.from(table).upsert(data, { onConflict: 'id' });
-        if (error) throw new Error(`Table ${table} Error: ${error.message}`);
-      };
-
-      await Promise.all([
-        sync('events', newDb.events),
-        sync('merchandise', newDb.merchandise),
-        sync('organizers', newDb.organizers),
-        sync('articles', newDb.articles),
-        sync('gallery', newDb.gallery)
-      ]);
-      
-      console.log("Data berhasil dipush ke cloud!");
-      alert("✅ Tersimpan Permanen di Database Cloud!");
-    } catch (err: any) {
-      console.error("Gagal menyimpan:", err);
-      alert("❌ GAGAL SIMPAN: " + err.message + "\n\nSaran: Pastikan Anda sudah menjalankan SQL Script di Supabase Editor untuk mematikan RLS atau menambah Policy.");
-    } finally {
-      setIsSaving(false);
+  const handleLogin = (success: boolean) => {
+    if (success) {
+      setIsLoggedIn(true);
+      localStorage.setItem('pelarian_admin_auth', 'true');
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('pelarian_admin_auth');
   };
 
   if (loading) {
@@ -152,7 +73,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-6">
           <div className="w-16 h-16 border-4 border-[#0C61BC] border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-[#0C61BC] font-black text-xs uppercase tracking-[0.3rem]">Menghubungkan ke Cloud...</div>
+          <p className="text-[#0C61BC] font-black text-xs uppercase tracking-[0.3rem]">LOADING PELARIAN RC...</p>
         </div>
       </div>
     );
@@ -161,15 +82,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="flex flex-col min-h-screen bg-black relative">
-        {isSaving && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center">
-             <div className="text-center">
-                <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-white font-black text-xs uppercase tracking-widest">Sinkronisasi Cloud...</p>
-             </div>
-          </div>
-        )}
-        <Navbar isAdmin={!!session} onLogout={handleLogout} db={db} />
+        <Navbar isAdmin={isLoggedIn} onLogout={handleLogout} db={db} />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Home db={db} />} />
@@ -182,9 +95,9 @@ const App: React.FC = () => {
             <Route path="/articles" element={<Articles db={db} />} />
             <Route path="/article/:id" element={<ArticleDetail db={db} />} />
             <Route path="/gallery" element={<Gallery db={db} />} />
-            <Route path="/admin/login" element={session ? <Navigate to="/admin/dashboard" /> : <AdminLogin onLogin={() => {}} />} />
-            <Route path="/admin/dashboard" element={session ? <AdminDashboard db={db} /> : <Navigate to="/admin/login" />} />
-            <Route path="/admin/cms/*" element={session ? <AdminCMS db={db} onUpdate={handleUpdateDb} /> : <Navigate to="/admin/login" />} />
+            <Route path="/admin/login" element={isLoggedIn ? <Navigate to="/admin/dashboard" /> : <AdminLogin onLogin={() => handleLogin(true)} />} />
+            <Route path="/admin/dashboard" element={isLoggedIn ? <AdminDashboard db={db} /> : <Navigate to="/admin/login" />} />
+            <Route path="/admin/cms/*" element={isLoggedIn ? <AdminCMS db={db} onUpdate={handleUpdateDb} /> : <Navigate to="/admin/login" />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
